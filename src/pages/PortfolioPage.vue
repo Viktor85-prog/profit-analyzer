@@ -7,8 +7,29 @@
     </v-card>
 
     <v-card class="pa-5 mb-5" v-if="portfolio.length">
-      <h2 class="mb-4">Portfolio</h2>
+      <div class="d-flex align-center justify-space-between mb-4">
+        <h2>Portfolio</h2>
 
+        <v-menu offset-y>
+          <template v-slot:activator="{ on, attrs }">
+            <v-btn icon v-bind="attrs" v-on="on">
+              <v-icon> mdi-filter-variant </v-icon>
+            </v-btn>
+          </template>
+
+          <v-card width="260" class="pa-2">
+            <div class="d-flex justify-space-between mb-2">
+              <v-btn small text @click="showAllColumns"> All </v-btn>
+
+              <v-btn small text @click="hideOptionalColumns"> Clear </v-btn>
+            </div>
+
+            <v-divider class="mb-2" />
+
+            <v-checkbox v-for="header in optionalHeaders" :key="header.value" v-model="header.visible" :label="header.text" dense hide-details class="mt-1" />
+          </v-card>
+        </v-menu>
+      </div>
       <v-data-table :headers="portfolioHeaders" :items="portfolio" class="elevation-1" />
     </v-card>
   </v-container>
@@ -34,36 +55,116 @@ export default {
 
       portfolio: [],
 
-      portfolioHeaders: [
+      allPortfolioHeaders: [
         {
           text: "Ticker",
-          value: "ticker"
+          value: "ticker",
+          visible: true
         },
         {
-          text: "Quantity",
-          value: "quantity"
+          text: "Qty",
+          value: "quantity",
+          visible: true
         },
         {
           text: "Avg Price",
-          value: "avgPrice"
+          value: "avgPrice",
+          visible: true
         },
         {
           text: "Invested",
-          value: "invested"
+          value: "invested",
+          visible: true
+        },
+
+        // -------------------
+        // toggleable
+        // -------------------
+
+        {
+          text: "Trading PnL",
+          value: "realizedPnL",
+          visible: true,
+          toggleable: true
         },
         {
-          text: "PnL",
-          value: "realizedPnL"
+          text: "Trading %",
+          value: "realizedPnLPercent",
+          visible: true,
+          toggleable: true
         },
         {
           text: "Dividends",
-          value: "dividends"
+          value: "dividends",
+          visible: true,
+          toggleable: true
+        },
+        {
+          text: "Dividend %",
+          value: "dividendYieldPercent",
+          visible: true,
+          toggleable: true
+        },
+        {
+          text: "Total PnL",
+          value: "totalPnL",
+          visible: true,
+          toggleable: true
+        },
+        {
+          text: "Total %",
+          value: "totalPnLPercent",
+          visible: true,
+          toggleable: true
         }
       ]
     };
   },
+  created() {
+    const saved = localStorage.getItem("portfolio-columns");
 
+    if (saved) {
+      this.allPortfolioHeaders = JSON.parse(saved);
+    }
+  },
+  computed: {
+    portfolioHeaders() {
+      return this.allPortfolioHeaders.filter((h) => {
+        // обязательные поля всегда видны
+        if (["ticker", "quantity", "avgPrice", "invested"].includes(h.value)) {
+          return true;
+        }
+
+        return h.visible;
+      });
+    },
+
+    optionalHeaders() {
+      return this.allPortfolioHeaders.filter((h) => h.toggleable);
+    }
+  },
+  watch: {
+    allPortfolioHeaders: {
+      deep: true,
+      handler(val) {
+        localStorage.setItem("portfolio-columns", JSON.stringify(val));
+      }
+    }
+  },
   methods: {
+    showAllColumns() {
+      this.allPortfolioHeaders.forEach((h) => {
+        h.visible = true;
+      });
+    },
+
+    hideOptionalColumns() {
+      this.allPortfolioHeaders.forEach((h) => {
+        if (!h.required) {
+          h.visible = false;
+        }
+      });
+    },
     handleFileUpload(files) {
       const file = Array.isArray(files) ? files[0] : files;
 
