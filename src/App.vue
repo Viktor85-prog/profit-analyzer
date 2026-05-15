@@ -1,5 +1,7 @@
 <template>
-  <PortfolioPage />
+  <v-app>
+    <PortfolioPage />
+  </v-app>
 </template>
 
 <script>
