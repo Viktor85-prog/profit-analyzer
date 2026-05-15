@@ -1,11 +1,13 @@
 <template>
-  <div id="app">
-    <h1>Profit Analyzer</h1>
-  </div>
+  <PortfolioPage />
 </template>
 
 <script>
+import PortfolioPage from "./pages/PortfolioPage.vue";
+
 export default {
-  name: 'App'
+  components: {
+    PortfolioPage
+  }
 };
 </script>
