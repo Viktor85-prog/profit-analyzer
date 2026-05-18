@@ -370,7 +370,53 @@ export default {
           // FILTER ROWS
           // -------------------
 
-          this.rows = jsonData.slice(startIndex, endIndex).filter((row) => row && row.some((cell) => String(cell).trim() !== ""));
+          //   this.rows = jsonData.slice(startIndex, endIndex).filter((row) => row && row.some((cell) => String(cell).trim() !== ""));
+          // -------------------
+          // FILTER ROWS
+          // -------------------
+
+          const rawRows = jsonData.slice(startIndex, endIndex).filter((row) => row && row.some((cell) => String(cell).trim() !== ""));
+
+          // -------------------
+          // DETECT ASSET TYPES
+          // -------------------
+
+          let currentAssetType = null;
+
+          this.rows = rawRows.map((row) => {
+            const rowText = row.join(" ").trim().toLowerCase();
+
+            // -------------------
+            // sections
+            // -------------------
+            // console.log(rowText);
+            if (rowText.includes("акция")) {
+              currentAssetType = "shares";
+            }
+
+            if (rowText.includes("облигация")) {
+              currentAssetType = "bonds";
+            }
+
+            if (rowText.includes("пай")) {
+              currentAssetType = "etfs";
+            }
+
+            if (rowText.includes("драгоценные")) {
+              currentAssetType = "metals";
+            }
+
+            if (rowText.includes("займы")) {
+              currentAssetType = "loans";
+            }
+
+            return {
+              assetType: currentAssetType,
+              row
+            };
+          });
+
+          console.log("ROWS WITH TYPES:", this.rows);
 
           console.log("FILTERED ROWS:", this.rows.length);
 

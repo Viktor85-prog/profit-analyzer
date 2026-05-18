@@ -13,7 +13,10 @@ export function parseBCSReport(rows) {
 
   const tickerMeta = {};
 
-  for (const row of rows) {
+  for (const item of rows) {
+    const row = item.row;
+    const assetType = item.assetType;
+
     if (!row || !row.length) {
       continue;
     }
@@ -198,6 +201,7 @@ export function parseBCSReport(rows) {
       quantity,
       price,
       amount,
+      assetType,
       side: buyQty ? "BUY" : "SELL"
     };
 

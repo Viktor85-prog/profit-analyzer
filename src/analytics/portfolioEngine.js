@@ -16,6 +16,8 @@ export function buildPortfolio(transactions) {
 
         instrumentName: tx.instrumentName,
 
+        assetType: tx.assetType,
+
         // -------------------
         // position
         // -------------------
