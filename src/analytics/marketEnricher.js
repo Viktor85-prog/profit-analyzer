@@ -1,5 +1,3 @@
-// src/analytics/marketEnricher.js
-
 import { loadMoexRegistry } from "../services/moexRegistry";
 
 // -----------------------------------
@@ -16,7 +14,7 @@ function round(value, digits = 2) {
 
 export async function enrichPortfolioWithMarketData(portfolio) {
   // -----------------------------------
-  // load all prices once
+  // load registry
   // -----------------------------------
 
   const registry = await loadMoexRegistry();
@@ -26,19 +24,35 @@ export async function enrichPortfolioWithMarketData(portfolio) {
   // -----------------------------------
 
   return portfolio.map((item) => {
-    const registryItem = registry[item.isin];
+    // -----------------------------------
+    // asset registry
+    // -----------------------------------
+
+    const assetRegistry = registry[item.assetType] || {};
+
+    const moexData = assetRegistry[item.isin];
 
     // -----------------------------------
     // market data
     // -----------------------------------
 
-    const currentPrice = round(registryItem?.price ?? 0);
+    let currentPrice = 0;
 
-    const moexTicker = registryItem?.moexTicker ?? item.ticker;
+    let moexTicker = null;
 
-    const market = registryItem?.market ?? null;
+    if (moexData) {
+      currentPrice = round(moexData.price);
 
-    const board = registryItem?.board ?? null;
+      moexTicker = moexData.moexTicker;
+    }
+
+    // -----------------------------------
+    // bonds price normalization
+    // -----------------------------------
+
+    if (item.assetType === "bonds") {
+      currentPrice = round((currentPrice / 100) * 1000);
+    }
 
     // -----------------------------------
     // calculations
@@ -50,7 +64,7 @@ export async function enrichPortfolioWithMarketData(portfolio) {
 
     const unrealizedPnLPercent = item.invested ? round((unrealizedPnL / item.invested) * 100) : 0;
 
-    const totalPnL = round(unrealizedPnL + item.realizedPnL + item.dividends);
+    const totalPnL = round(unrealizedPnL + (item.realizedPnL || 0) + (item.dividends || 0));
 
     const totalPnLPercent = item.invested ? round((totalPnL / item.invested) * 100) : 0;
 
@@ -61,25 +75,15 @@ export async function enrichPortfolioWithMarketData(portfolio) {
     return {
       ...item,
 
-      // MOEX
-
       moexTicker,
 
-      market,
-
-      board,
-
       currentPrice,
-
-      // POSITION
 
       positionValue,
 
       unrealizedPnL,
 
       unrealizedPnLPercent,
-
-      // TOTAL
 
       totalPnL,
 

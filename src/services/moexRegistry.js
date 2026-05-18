@@ -10,142 +10,162 @@ let cachedRegistry = null;
 // sources
 // -----------------------------------
 
-const SOURCES = [
-  {
+const SOURCES = {
+  shares: {
     market: "shares",
     board: "TQBR"
   },
 
-  {
-    market: "bonds",
-    board: "TQCB"
-  },
+  bonds: [
+    {
+      market: "bonds",
+      board: "TQCB"
+    },
 
-  {
+    {
+      market: "bonds",
+      board: "TQOB"
+    }
+  ],
+
+  etfs: {
     market: "etfs",
     board: "TQTF"
   }
-];
+};
+
+// -----------------------------------
+// load single market
+// -----------------------------------
+
+async function loadMarketRegistry(assetType, config) {
+  const registry = {};
+
+  try {
+    const url =
+      `https://iss.moex.com/iss/engines/stock/markets/${config.market}/boards/${config.board}/securities.json` +
+      `?iss.only=securities,marketdata` +
+      `&securities.columns=ISIN,SECID,SHORTNAME` +
+      `&marketdata.columns=SECID,LAST,MARKETPRICE2,LCURRENTPRICE,WAPRICE`;
+
+    console.log("LOAD:", assetType, config.board, url);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const securities = data.securities?.data || [];
+
+    const marketdata = data.marketdata?.data || [];
+
+    // -----------------------------------
+    // secid -> market row
+    // -----------------------------------
+
+    const marketMap = {};
+
+    marketdata.forEach((row) => {
+      marketMap[row[0]] = row;
+    });
+
+    // -----------------------------------
+    // registry
+    // -----------------------------------
+
+    securities.forEach((secRow) => {
+      const isin = secRow[0];
+
+      const secid = secRow[1];
+
+      const shortName = secRow[2];
+
+      if (!isin || !secid) {
+        return;
+      }
+
+      const marketRow = marketMap[secid];
+
+      if (!marketRow) {
+        return;
+      }
+
+      const last = marketRow[1];
+
+      const marketPrice2 = marketRow[2];
+
+      const currentPrice = marketRow[3];
+
+      const waPrice = marketRow[4];
+
+      const price = last ?? marketPrice2 ?? currentPrice ?? waPrice ?? null;
+
+      if (price === null || Number.isNaN(Number(price))) {
+        return;
+      }
+
+      registry[isin] = {
+        price: Number(price),
+
+        moexTicker: assetType === "bonds" ? shortName || secid || isin : secid || shortName || isin
+      };
+    });
+
+    console.log(assetType, config.board, "LOADED:", Object.keys(registry).length);
+
+    return registry;
+  } catch (err) {
+    console.error("MOEX REGISTRY ERROR:", assetType, config.board, err);
+
+    return {};
+  }
+}
 
 // -----------------------------------
 // load registry
 // -----------------------------------
 
 export async function loadMoexRegistry() {
-  // -----------------------------------
-  // cache
-  // -----------------------------------
-
   if (cachedRegistry) {
     return cachedRegistry;
   }
 
-  const registry = {};
+  const result = {};
 
-  // -----------------------------------
-  // parallel lightweight requests
-  // -----------------------------------
+  const entries = Object.entries(SOURCES);
 
   await Promise.all(
-    SOURCES.map(async ({ market, board }) => {
-      try {
-        const url =
-          `https://iss.moex.com/iss/engines/stock/markets/${market}/boards/${board}/securities.json` +
-          `?iss.only=securities,marketdata` +
-          `&securities.columns=ISIN,SECID` +
-          `&marketdata.columns=SECID,LAST,MARKETPRICE2,LCURRENTPRICE,WAPRICE`;
+    entries.map(async ([assetType, config]) => {
+      // -----------------------------------
+      // multiple boards
+      // -----------------------------------
 
-        console.log("LOAD:", market, board);
+      if (Array.isArray(config)) {
+        result[assetType] = {};
 
-        const response = await fetch(url);
+        const registries = await Promise.all(config.map((item) => loadMarketRegistry(assetType, item)));
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        const securities = data.securities?.data || [];
-
-        const marketdata = data.marketdata?.data || [];
-
-        // -----------------------------------
-        // secid -> market row
-        // -----------------------------------
-
-        const marketMap = {};
-
-        marketdata.forEach((row) => {
-          marketMap[row[0]] = row;
+        registries.forEach((part) => {
+          Object.assign(result[assetType], part);
         });
 
-        // -----------------------------------
-        // build registry
-        // -----------------------------------
-
-        securities.forEach((secRow) => {
-          const isin = secRow[0];
-
-          const secid = secRow[1];
-
-          if (!isin || !secid) {
-            return;
-          }
-
-          const marketRow = marketMap[secid];
-
-          if (!marketRow) {
-            return;
-          }
-
-          // columns:
-          // SECID,LAST,MARKETPRICE2,LCURRENTPRICE,WAPRICE
-
-          const last = marketRow[1];
-
-          const marketPrice2 = marketRow[2];
-
-          const currentPrice = marketRow[3];
-
-          const waPrice = marketRow[4];
-
-          const price = last ?? marketPrice2 ?? currentPrice ?? waPrice ?? null;
-
-          if (price === null || Number.isNaN(Number(price))) {
-            return;
-          }
-
-          // -----------------------------------
-          // save full object
-          // -----------------------------------
-
-          registry[isin] = {
-            price: Number(price),
-
-            moexTicker: secid,
-
-            market,
-
-            board
-          };
-
-          // console.log(
-          //   "REG:",
-          //   isin,
-          //   secid,
-          //   board,
-          //   registry[isin]
-          // );
-        });
-      } catch (err) {
-        console.error("MOEX REGISTRY ERROR:", market, board, err);
+        return;
       }
+
+      // -----------------------------------
+      // single board
+      // -----------------------------------
+
+      result[assetType] = await loadMarketRegistry(assetType, config);
     })
   );
 
-  console.log("MOEX REGISTRY LOADED:", Object.keys(registry).length);
+  cachedRegistry = result;
 
-  cachedRegistry = registry;
+  console.log("MOEX REGISTRY READY:", result);
 
-  return registry;
+  return result;
 }
