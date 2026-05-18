@@ -115,10 +115,27 @@ export async function loadMoexRegistry() {
             return;
           }
 
-          registry[isin] = Number(price);
-          //   registry[secid] = secid;
+          // -----------------------------------
+          // save full object
+          // -----------------------------------
 
-          //   console.log("REG:", isin, secid, board, registry[isin]);
+          registry[isin] = {
+            price: Number(price),
+
+            moexTicker: secid,
+
+            market,
+
+            board
+          };
+
+          // console.log(
+          //   "REG:",
+          //   isin,
+          //   secid,
+          //   board,
+          //   registry[isin]
+          // );
         });
       } catch (err) {
         console.error("MOEX REGISTRY ERROR:", market, board, err);

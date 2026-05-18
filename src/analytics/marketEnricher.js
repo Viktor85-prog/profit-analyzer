@@ -1,3 +1,5 @@
+// src/analytics/marketEnricher.js
+
 import { loadMoexRegistry } from "../services/moexRegistry";
 
 // -----------------------------------
@@ -24,8 +26,23 @@ export async function enrichPortfolioWithMarketData(portfolio) {
   // -----------------------------------
 
   return portfolio.map((item) => {
-    console.log(item);
-    const currentPrice = round(registry[item.isin] ?? 0);
+    const registryItem = registry[item.isin];
+
+    // -----------------------------------
+    // market data
+    // -----------------------------------
+
+    const currentPrice = round(registryItem?.price ?? 0);
+
+    const moexTicker = registryItem?.moexTicker ?? item.ticker;
+
+    const market = registryItem?.market ?? null;
+
+    const board = registryItem?.board ?? null;
+
+    // -----------------------------------
+    // calculations
+    // -----------------------------------
 
     const positionValue = round(currentPrice * item.quantity);
 
@@ -37,16 +54,32 @@ export async function enrichPortfolioWithMarketData(portfolio) {
 
     const totalPnLPercent = item.invested ? round((totalPnL / item.invested) * 100) : 0;
 
+    // -----------------------------------
+    // result
+    // -----------------------------------
+
     return {
       ...item,
 
+      // MOEX
+
+      moexTicker,
+
+      market,
+
+      board,
+
       currentPrice,
+
+      // POSITION
 
       positionValue,
 
       unrealizedPnL,
 
       unrealizedPnLPercent,
+
+      // TOTAL
 
       totalPnL,
 

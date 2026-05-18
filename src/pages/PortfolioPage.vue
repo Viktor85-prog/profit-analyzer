@@ -73,7 +73,7 @@ export default {
       allPortfolioHeaders: [
         {
           text: "Тикер",
-          value: "ticker",
+          value: "moexTicker",
           visible: true
         },
 
@@ -206,7 +206,7 @@ export default {
   computed: {
     portfolioHeaders() {
       return this.allPortfolioHeaders.filter((h) => {
-        if (["ticker", "quantity", "avgPrice", "invested", "currentPrice"].includes(h.value)) {
+        if (["moexTicker", "quantity", "avgPrice", "invested", "currentPrice"].includes(h.value)) {
           return true;
         }
 
