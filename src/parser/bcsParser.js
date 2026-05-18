@@ -1,7 +1,17 @@
 export function parseBCSReport(rows) {
   const transactions = [];
 
+  // -----------------------------------
+  // current instrument
+  // -----------------------------------
+
   let currentTicker = null;
+
+  // -----------------------------------
+  // metadata storage
+  // -----------------------------------
+
+  const tickerMeta = {};
 
   for (const row of rows) {
     if (!row || !row.length) {
@@ -11,18 +21,21 @@ export function parseBCSReport(rows) {
     // -----------------------------------
     // у БКС первая колонка пустая
     // -----------------------------------
+
     const first = String(row[1] || "").trim();
 
     // -----------------------------------
-    // пропуск пустых строк
+    // пустые строки
     // -----------------------------------
+
     if (!first) {
       continue;
     }
 
     // -----------------------------------
-    // пропуск мусора
+    // мусор
     // -----------------------------------
+
     const ignoredRows = [
       "Акция",
       "Облигация",
@@ -48,42 +61,72 @@ export function parseBCSReport(rows) {
     }
 
     // -----------------------------------
-    // дата сделки
+    // строка сделки = дата
     // -----------------------------------
+
     const isTradeRow = /^\d{2}\.\d{2}\.\d{2}$/.test(first);
 
     // -----------------------------------
-    // строка тикера
+    // ticker row
     // -----------------------------------
+
     if (!isTradeRow) {
       // -----------------------------------
-      // игнор валютных пар
+      // пропуск валют
       // -----------------------------------
+
       const isCurrencyPair =
         first.includes("RUB_TOM") || first.includes("RUB_TOD") || first.includes("USDT") || first.includes("EURRUB") || first.includes("CNYRUB");
 
       if (isCurrencyPair) {
         currentTicker = null;
+
         continue;
       }
 
       currentTicker = first;
 
-      //   console.log("TICKER:", currentTicker);
+      // -----------------------------------
+      // metadata
+      // -----------------------------------
+      const regIndex = row.findIndex((cell) => String(cell).includes("Номер рег."));
+
+      const isinIndex = row.findIndex((cell) => String(cell).includes("ISIN"));
+
+      const regNumber = regIndex >= 0 ? String(row[regIndex + 1] || "").trim() : "";
+
+      const isin = isinIndex >= 0 ? String(row[isinIndex + 1] || "").trim() : "";
+
+      // -----------------------------------
+      // название инструмента
+      // обычно идет после ISIN value
+      // -----------------------------------
+
+      const instrumentName = isinIndex >= 0 ? String(row[isinIndex + 2] || "").trim() : "";
+
+      tickerMeta[currentTicker] = {
+        regNumber,
+        isin,
+        instrumentName
+      };
+
+      //   console.log("META:", currentTicker, tickerMeta[currentTicker]);
 
       continue;
     }
 
     // -----------------------------------
-    // если тикера нет — пропуск
+    // нет ticker
     // -----------------------------------
+
     if (!currentTicker) {
       continue;
     }
 
     // -----------------------------------
-    // колонки БКС
+    // quantity
     // -----------------------------------
+
     const buyQty = parseFloat(
       String(row[4] || "0")
         .replace(/\s/g, "")
@@ -97,20 +140,23 @@ export function parseBCSReport(rows) {
     );
 
     // -----------------------------------
-    // нет сделки
+    // пустая сделка
     // -----------------------------------
+
     if (!buyQty && !sellQty) {
       continue;
     }
 
     // -----------------------------------
-    // quantity
+    // итоговое количество
     // -----------------------------------
+
     const quantity = buyQty || -sellQty;
 
     // -----------------------------------
-    // цена
+    // price
     // -----------------------------------
+
     const priceRaw = buyQty ? row[5] : row[8];
 
     const price = parseFloat(
@@ -122,13 +168,15 @@ export function parseBCSReport(rows) {
     // -----------------------------------
     // битые строки
     // -----------------------------------
+
     if (isNaN(price)) {
       continue;
     }
 
     // -----------------------------------
-    // сумма
+    // amount
     // -----------------------------------
+
     const amountRaw = buyQty ? row[6] : row[9];
 
     const amount = parseFloat(
@@ -137,17 +185,19 @@ export function parseBCSReport(rows) {
         .replace(",", ".")
     );
 
+    // -----------------------------------
+    // transaction
+    // -----------------------------------
+
     const tx = {
       ticker: currentTicker,
-
+      regNumber: tickerMeta[currentTicker]?.regNumber || "",
+      isin: tickerMeta[currentTicker]?.isin || "",
+      instrumentName: tickerMeta[currentTicker]?.instrumentName || "",
       date: first,
-
       quantity,
-
       price,
-
       amount,
-
       side: buyQty ? "BUY" : "SELL"
     };
 
@@ -156,7 +206,7 @@ export function parseBCSReport(rows) {
     transactions.push(tx);
   }
 
-  //   console.log("FINAL TX:", transactions);
+  // console.log("FINAL TX:", transactions);
 
   return transactions;
 }

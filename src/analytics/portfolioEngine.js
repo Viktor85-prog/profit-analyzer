@@ -1,10 +1,24 @@
 export function buildPortfolio(transactions) {
   const portfolioMap = {};
-
+  //   console.log(transactions);
   for (const tx of transactions) {
+    // ---------------------------------
+    // CREATE ASSET
+    // ---------------------------------
+
     if (!portfolioMap[tx.ticker]) {
       portfolioMap[tx.ticker] = {
         ticker: tx.ticker,
+
+        isin: tx.isin,
+
+        regNumber: tx.regNumber,
+
+        instrumentName: tx.instrumentName,
+
+        // -------------------
+        // position
+        // -------------------
 
         quantity: 0,
 
@@ -12,14 +26,41 @@ export function buildPortfolio(transactions) {
 
         avgPrice: 0,
 
+        // -------------------
+        // realized pnl
+        // -------------------
+
         realizedPnL: 0,
+
         realizedPnLPercent: 0,
 
+        // -------------------
+        // dividends
+        // -------------------
+
         dividends: 0,
+
         dividendYieldPercent: 0,
 
+        // -------------------
+        // total pnl
+        // -------------------
+
         totalPnL: 0,
-        totalPnLPercent: 0
+
+        totalPnLPercent: 0,
+
+        // -------------------
+        // market
+        // -------------------
+
+        currentPrice: 0,
+
+        positionValue: 0,
+
+        unrealizedPnL: 0,
+
+        unrealizedPnLPercent: 0
       };
     }
 
@@ -28,74 +69,135 @@ export function buildPortfolio(transactions) {
     // ---------------------------------
     // BUY
     // ---------------------------------
+
     if (tx.side === "BUY") {
-      asset.quantity += tx.quantity;
+      const newQuantity = asset.quantity + tx.quantity;
+
+      // новая средняя
+      asset.avgPrice = newQuantity > 0 ? (asset.invested + tx.amount) / newQuantity : 0;
+
+      asset.quantity = newQuantity;
 
       asset.invested += tx.amount;
-
-      asset.avgPrice = asset.quantity > 0 ? asset.invested / asset.quantity : 0;
     }
 
     // ---------------------------------
     // SELL
     // ---------------------------------
+
     if (tx.side === "SELL") {
       const soldQty = Math.abs(tx.quantity);
 
+      // себестоимость проданной части
       const costBasis = soldQty * asset.avgPrice;
 
+      // прибыль/убыток
       const pnl = tx.amount - costBasis;
 
+      // realized pnl
       asset.realizedPnL += pnl;
 
+      // уменьшаем позицию
       asset.quantity -= soldQty;
 
+      // уменьшаем invested
       asset.invested -= costBasis;
 
-      asset.realizedPnLPercent = costBasis > 0 ? (asset.realizedPnL / (asset.realizedPnL + costBasis)) * 100 : 0;
+      // защита от -0
+      if (Math.abs(asset.quantity) < 0.00001) {
+        asset.quantity = 0;
+      }
+
+      if (Math.abs(asset.invested) < 0.00001) {
+        asset.invested = 0;
+      }
+
+      // avg price сохраняется пока позиция > 0
+      if (asset.quantity <= 0) {
+        asset.avgPrice = 0;
+      }
     }
 
     // ---------------------------------
     // DIVIDENDS
     // ---------------------------------
+
     if (tx.side === "DIVIDEND") {
       asset.dividends += tx.amount;
     }
 
     // ---------------------------------
-    // DIVIDEND YIELD
+    // REALIZED %
     // ---------------------------------
-    const investedBase = asset.invested + asset.realizedPnL;
 
-    asset.dividendYieldPercent = investedBase > 0 ? (asset.dividends / investedBase) * 100 : 0;
+    const realizedBase = asset.realizedPnL + asset.invested;
+
+    asset.realizedPnLPercent = realizedBase > 0 ? (asset.realizedPnL / realizedBase) * 100 : 0;
+
+    // ---------------------------------
+    // DIVIDEND %
+    // ---------------------------------
+
+    asset.dividendYieldPercent = realizedBase > 0 ? (asset.dividends / realizedBase) * 100 : 0;
 
     // ---------------------------------
     // TOTAL
     // ---------------------------------
+
     asset.totalPnL = asset.realizedPnL + asset.dividends;
 
-    asset.totalPnLPercent = investedBase > 0 ? (asset.totalPnL / investedBase) * 100 : 0;
+    asset.totalPnLPercent = realizedBase > 0 ? (asset.totalPnL / realizedBase) * 100 : 0;
+
+    // ---------------------------------
+    // UNREALIZED
+    // ---------------------------------
+
+    asset.positionValue = asset.quantity * asset.currentPrice;
+
+    asset.unrealizedPnL = asset.positionValue - asset.invested;
+
+    asset.unrealizedPnLPercent = asset.invested > 0 ? (asset.unrealizedPnL / asset.invested) * 100 : 0;
   }
+
+  // ---------------------------------
+  // ROUNDING
+  // ---------------------------------
 
   return Object.values(portfolioMap).map((item) => ({
     ...item,
 
-    quantity: Math.round(item.quantity * 100) / 100,
+    quantity: round(item.quantity),
 
-    invested: Math.round(item.invested * 100) / 100,
+    invested: round(item.invested),
 
-    avgPrice: Math.round(item.avgPrice * 100) / 100,
+    avgPrice: round(item.avgPrice),
 
-    realizedPnL: Math.round(item.realizedPnL * 100) / 100,
+    realizedPnL: round(item.realizedPnL),
 
-    realizedPnLPercent: Math.round(item.realizedPnLPercent * 100) / 100,
+    realizedPnLPercent: round(item.realizedPnLPercent),
 
-    dividends: Math.round(item.dividends * 100) / 100,
+    dividends: round(item.dividends),
 
-    dividendYieldPercent: Math.round(item.dividendYieldPercent * 100) / 100,
+    dividendYieldPercent: round(item.dividendYieldPercent),
 
-    totalPnL: Math.round(item.totalPnL * 100) / 100,
+    totalPnL: round(item.totalPnL),
 
-    totalPnLPercent: Math.round(item.totalPnLPercent * 100) / 100
+    totalPnLPercent: round(item.totalPnLPercent),
+
+    currentPrice: round(item.currentPrice),
+
+    positionValue: round(item.positionValue),
+
+    unrealizedPnL: round(item.unrealizedPnL),
+
+    unrealizedPnLPercent: round(item.unrealizedPnLPercent)
   }));
+}
+
+// ---------------------------------
+// HELPERS
+// ---------------------------------
+
+function round(value) {
+  return Math.round((value || 0) * 100) / 100;
 }
