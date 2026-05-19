@@ -1,4 +1,5 @@
 import { loadMoexRegistry } from "../services/moexRegistry";
+import { getSector } from "../services/sectorMap";
 
 // -----------------------------------
 // round helper
@@ -68,6 +69,8 @@ export async function enrichPortfolioWithMarketData(portfolio) {
 
     const totalPnLPercent = item.invested ? round((totalPnL / item.invested) * 100) : 0;
 
+    const sector = getSector(moexTicker || item.ticker, item.assetType);
+
     // -----------------------------------
     // result
     // -----------------------------------
@@ -76,6 +79,8 @@ export async function enrichPortfolioWithMarketData(portfolio) {
       ...item,
 
       moexTicker,
+
+      sector,
 
       currentPrice,
 

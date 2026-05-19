@@ -78,6 +78,12 @@ export default {
         },
 
         {
+          text: "Сектор",
+          value: "sector",
+          visible: true
+        },
+
+        {
           text: "Количество",
           value: "quantity",
           visible: true,
@@ -93,14 +99,14 @@ export default {
         {
           text: "Текущая цена",
           value: "currentPrice",
-          visible: true,
+          visible: false,
           format: "money"
         },
 
         {
           text: "Вложено",
           value: "invested",
-          visible: true,
+          visible: false,
           format: "money"
         },
 
@@ -111,7 +117,7 @@ export default {
         {
           text: "Trading PnL",
           value: "realizedPnL",
-          visible: true,
+          visible: false,
           toggleable: true,
           format: "money",
           colorize: true
@@ -120,7 +126,7 @@ export default {
         {
           text: "Trading %",
           value: "realizedPnLPercent",
-          visible: true,
+          visible: false,
           toggleable: true,
           format: "percent",
           colorize: true
@@ -129,7 +135,7 @@ export default {
         {
           text: "Dividends",
           value: "dividends",
-          visible: true,
+          visible: false,
           toggleable: true,
           format: "money",
           colorize: true
@@ -138,7 +144,7 @@ export default {
         {
           text: "Dividend %",
           value: "dividendYieldPercent",
-          visible: true,
+          visible: false,
           toggleable: true,
           format: "percent",
           colorize: true
