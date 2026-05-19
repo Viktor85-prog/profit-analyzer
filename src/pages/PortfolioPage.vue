@@ -5,7 +5,65 @@
 
       <v-file-input v-model="file" label="Загрузить Excel отчет" accept=".xlsx,.xls" show-size @change="handleFileUpload" />
     </v-card>
+    <v-row v-if="portfolio.length" class="mb-4">
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Стоимость</div>
 
+          <div class="stat-value">
+            {{ formatMoney(totalPortfolioValue) }}
+          </div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Вложено</div>
+
+          <div class="stat-value">
+            {{ formatMoney(totalInvested) }}
+          </div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Total PnL</div>
+
+          <div class="stat-value" :class="getPnLClass(totalPnL)">
+            {{ formatMoney(totalPnL) }}
+          </div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Total %</div>
+
+          <div class="stat-value" :class="getPnLClass(totalPnLPercent)">{{ totalPnLPercent.toFixed(2) }}%</div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Дивиденды</div>
+
+          <div class="stat-value">
+            {{ formatMoney(totalDividends) }}
+          </div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="2">
+        <v-card class="pa-4 stat-card">
+          <div class="stat-label">Сделки PnL</div>
+
+          <div class="stat-value" :class="getPnLClass(totalRealizedPnL)">
+            {{ formatMoney(totalRealizedPnL) }}
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
     <v-card class="pa-5 mb-5" v-if="portfolio.length">
       <div class="d-flex align-center justify-space-between mb-4">
         <h2>Portfolio</h2>
@@ -31,7 +89,7 @@
         </v-menu>
       </div>
 
-      <v-data-table :headers="portfolioHeaders" :items="portfolio" class="elevation-1">
+      <v-data-table :headers="portfolioHeaders" :items="portfolio" class="elevation-1 portfolio-table">
         <template v-slot:item="{ item, headers }">
           <tr>
             <td v-for="header in headers" :key="header.value" :class="getCellClass(item[header.value], header)">
@@ -84,7 +142,7 @@ export default {
         },
 
         {
-          text: "Количество",
+          text: "Qty",
           value: "quantity",
           visible: true,
           format: "number"
@@ -97,7 +155,7 @@ export default {
           format: "money"
         },
         {
-          text: "Текущая цена",
+          text: "Тек. цена",
           value: "currentPrice",
           visible: false,
           format: "money"
@@ -222,6 +280,44 @@ export default {
 
     optionalHeaders() {
       return this.allPortfolioHeaders.filter((h) => h.toggleable);
+    },
+
+    totalPortfolioValue() {
+      return this.portfolio.reduce((sum, item) => {
+        return sum + Number(item.positionValue || 0);
+      }, 0);
+    },
+
+    totalInvested() {
+      return this.portfolio.reduce((sum, item) => {
+        return sum + Number(item.invested || 0);
+      }, 0);
+    },
+
+    totalPnL() {
+      return this.portfolio.reduce((sum, item) => {
+        return sum + Number(item.totalPnL || 0);
+      }, 0);
+    },
+
+    totalPnLPercent() {
+      if (!this.totalInvested) {
+        return 0;
+      }
+
+      return (this.totalPnL / this.totalInvested) * 100;
+    },
+
+    totalDividends() {
+      return this.portfolio.reduce((sum, item) => {
+        return sum + Number(item.dividends || 0);
+      }, 0);
+    },
+
+    totalRealizedPnL() {
+      return this.portfolio.reduce((sum, item) => {
+        return sum + Number(item.realizedPnL || 0);
+      }, 0);
     }
   },
 
@@ -236,6 +332,24 @@ export default {
   },
 
   methods: {
+    formatMoney(value) {
+      return new Intl.NumberFormat("ru-RU", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(Number(value || 0));
+    },
+
+    getPnLClass(value) {
+      if (value > 0) {
+        return "profit";
+      }
+
+      if (value < 0) {
+        return "loss";
+      }
+
+      return "";
+    },
     // -------------------
     // FORMATTERS
     // -------------------
@@ -471,8 +585,28 @@ export default {
 </script>
 
 <style scoped>
+.stat-card {
+  border-radius: 14px;
+  transition: 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
 .portfolio-page {
-  padding: 20px;
+  padding: 10px;
 }
 
 table {
@@ -493,5 +627,28 @@ th {
 .loss {
   color: #f44336;
   font-weight: 600;
+}
+
+.portfolio-table ::v-deep thead th {
+  white-space: nowrap;
+  height: 56px;
+  vertical-align: middle;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.portfolio-table ::v-deep tbody td {
+  white-space: nowrap;
+  height: 52px;
+  vertical-align: middle;
+}
+
+.portfolio-table ::v-deep table {
+  table-layout: auto;
+}
+
+.portfolio-table {
+  border-radius: 12px;
+  overflow: hidden;
 }
 </style>
